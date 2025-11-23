@@ -1,0 +1,29 @@
+# =============================================================================
+# OpenEdge Analytics MCP Server Dependencies
+# =============================================================================
+
+# ODBC Database Driver
+pyodbc>=5.0.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# =============================================================================
+# Development Dependencies (optional)
+# =============================================================================
+
+# Testing framework
+pytest>=7.0.0
+
+# Mocking support (included in pytest)
+# pytest-mock>=3.0.0
+
+# Type checking (optional)
+# mypy>=1.0.0
+
+# Code formatting (optional)
+# black>=23.0.0
+# isort>=5.0.0
+
+# Linting (optional)
+# ruff>=0.1.0
