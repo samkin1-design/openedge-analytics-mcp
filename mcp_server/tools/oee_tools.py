@@ -89,6 +89,10 @@ def get_oee_trend(
     if not line_id or not line_id.strip():
         raise ValueError("line_id is required")
 
+    # Sanitize line_id to prevent SQL injection (only allow alphanumeric, hyphen, underscore)
+    if not re.match(r"^[a-zA-Z0-9_\-]+$", line_id):
+        raise ValueError("line_id contains invalid characters")
+
     if not from_date or not validate_date_format(from_date):
         raise ValueError("from_date must be in YYYY-MM-DD format")
 
@@ -105,27 +109,28 @@ def get_oee_trend(
         config = get_config()
         sql_template = load_sql_template("oee_trend.sql")
 
-        # Replace schema placeholder
-        # Note: 스키마명은 파라미터 바인딩이 아닌 문자열 치환 사용
-        # (대부분의 DB에서 스키마명은 파라미터로 전달 불가)
+        # Replace placeholders
+        # Note: Parameters are already validated, safe to use string replacement
+        # OpenEdge ODBC driver has issues with parameter binding for dates
         sql = sql_template.replace("{schema}", config.analytics_schema)
+        sql = sql.replace("{wkctr}", line_id)
+        sql = sql.replace("{from_date}", from_date)
+        sql = sql.replace("{to_date}", to_date)
 
-        # Execute query with parameter binding
+        # Execute query
         db = get_connection()
-        rows = db.execute_query_as_dicts(
-            sql,
-            (line_id, from_date, to_date),
-        )
+        rows = db.execute_query_as_dicts(sql)
 
         # Format results
+        # Note: OpenEdge returns column names in UPPERCASE
         result_rows: List[Dict[str, Any]] = []
         for row in rows:
             result_rows.append({
-                "date": str(row.get("production_date", "")),
-                "oee": float(row.get("oee", 0.0)),
-                "availability": float(row.get("availability", 0.0)),
-                "performance": float(row.get("performance", 0.0)),
-                "quality": float(row.get("quality", 0.0)),
+                "date": str(row.get("PRODUCTION_DATE", "")),
+                "oee": float(row.get("OEE", 0.0)),
+                "availability": float(row.get("AVAILABILITY", 0.0)),
+                "performance": float(row.get("PERFORMANCE", 0.0)),
+                "quality": float(row.get("QUALITY", 0.0)),
             })
 
         return {

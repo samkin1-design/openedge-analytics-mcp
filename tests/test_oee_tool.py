@@ -84,22 +84,22 @@ class TestGetOeeTrend:
             WHERE line_id = ? AND production_date >= ? AND production_date <= ?
         """
 
-        # Mock database response
+        # Mock database response (OpenEdge returns UPPERCASE column names)
         mock_db = MagicMock()
         mock_db.execute_query_as_dicts.return_value = [
             {
-                "production_date": "2024-01-01",
-                "oee": 0.71,
-                "availability": 0.9,
-                "performance": 0.8,
-                "quality": 0.98,
+                "PRODUCTION_DATE": "2024-01-01",
+                "OEE": 0.71,
+                "AVAILABILITY": 0.9,
+                "PERFORMANCE": 0.8,
+                "QUALITY": 0.98,
             },
             {
-                "production_date": "2024-01-02",
-                "oee": 0.75,
-                "availability": 0.92,
-                "performance": 0.82,
-                "quality": 0.99,
+                "PRODUCTION_DATE": "2024-01-02",
+                "OEE": 0.75,
+                "AVAILABILITY": 0.92,
+                "PERFORMANCE": 0.82,
+                "QUALITY": 0.99,
             },
         ]
         mock_get_conn.return_value = mock_db
@@ -180,17 +180,17 @@ class TestOeeToolResponseSchema:
         mock_db = MagicMock()
         mock_db.execute_query_as_dicts.return_value = [
             {
-                "production_date": "2024-01-01",
-                "oee": 0.85,
-                "availability": 0.95,
-                "performance": 0.90,
-                "quality": 0.99,
+                "PRODUCTION_DATE": "2024-01-01",
+                "OEE": 0.85,
+                "AVAILABILITY": 0.95,
+                "PERFORMANCE": 0.90,
+                "QUALITY": 0.99,
             }
         ]
         mock_get_conn.return_value = mock_db
 
         result = get_oee_trend(
-            line_id="LINE_01",
+            line_id="LINE01",
             from_date="2024-01-01",
             to_date="2024-01-31",
         )
@@ -214,17 +214,17 @@ class TestOeeToolResponseSchema:
         mock_db = MagicMock()
         mock_db.execute_query_as_dicts.return_value = [
             {
-                "production_date": "2024-01-01",
-                "oee": 0.85,
-                "availability": 0.95,
-                "performance": 0.90,
-                "quality": 0.99,
+                "PRODUCTION_DATE": "2024-01-01",
+                "OEE": 0.85,
+                "AVAILABILITY": 0.95,
+                "PERFORMANCE": 0.90,
+                "QUALITY": 0.99,
             }
         ]
         mock_get_conn.return_value = mock_db
 
         result = get_oee_trend(
-            line_id="LINE_01",
+            line_id="LINE01",
             from_date="2024-01-01",
             to_date="2024-01-31",
         )
