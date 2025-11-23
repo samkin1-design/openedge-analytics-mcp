@@ -5,6 +5,7 @@ OEE (Overall Equipment Effectiveness) 관련 MCP Tools.
 """
 
 import logging
+import re
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -22,12 +23,22 @@ def validate_date_format(date_str: str) -> bool:
     """
     Validate ISO date format (YYYY-MM-DD).
 
+    Strictly validates that the format is exactly YYYY-MM-DD with:
+    - 4-digit year
+    - 2-digit month (01-12)
+    - 2-digit day (01-31)
+
     Args:
         date_str: Date string to validate.
 
     Returns:
         True if valid, False otherwise.
     """
+    # First check the format pattern (exactly YYYY-MM-DD)
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+        return False
+
+    # Then validate it's a real date
     try:
         datetime.strptime(date_str, "%Y-%m-%d")
         return True

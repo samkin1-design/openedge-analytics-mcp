@@ -6,11 +6,21 @@ Provides connection management with context manager support.
 
 import logging
 from contextlib import contextmanager
-from typing import Any, Generator, List, Optional, Tuple
-
-import pyodbc
+from typing import TYPE_CHECKING, Any, Generator, List, Optional, Tuple
 
 from mcp_server.config import get_config
+
+# Lazy import for pyodbc to allow testing without ODBC drivers
+pyodbc = None
+
+
+def _get_pyodbc():
+    """Lazy load pyodbc module."""
+    global pyodbc
+    if pyodbc is None:
+        import pyodbc as _pyodbc
+        pyodbc = _pyodbc
+    return pyodbc
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +79,7 @@ class DatabaseConnection:
         return ";".join(parts)
 
     @contextmanager
-    def get_connection(self) -> Generator[pyodbc.Connection, None, None]:
+    def get_connection(self) -> Generator[Any, None, None]:
         """
         Get a database connection as a context manager.
 
@@ -79,14 +89,15 @@ class DatabaseConnection:
         Raises:
             DatabaseConnectionError: If connection fails.
         """
+        _pyodbc = _get_pyodbc()
         conn = None
         try:
             conn_str = self._build_connection_string()
             logger.debug(f"Connecting to DSN: {self.dsn}")
-            conn = pyodbc.connect(conn_str, timeout=self.timeout)
+            conn = _pyodbc.connect(conn_str, timeout=self.timeout)
             conn.timeout = self.timeout
             yield conn
-        except pyodbc.Error as e:
+        except _pyodbc.Error as e:
             logger.error(f"Database connection failed: {e}")
             raise DatabaseConnectionError(f"Failed to connect to database: {e}") from e
         finally:
@@ -98,7 +109,7 @@ class DatabaseConnection:
                     logger.warning(f"Error closing connection: {e}")
 
     @contextmanager
-    def get_cursor(self) -> Generator[pyodbc.Cursor, None, None]:
+    def get_cursor(self) -> Generator[Any, None, None]:
         """
         Get a database cursor as a context manager.
 
@@ -119,7 +130,7 @@ class DatabaseConnection:
         self,
         query: str,
         params: Optional[Tuple[Any, ...]] = None,
-    ) -> List[pyodbc.Row]:
+    ) -> List[Any]:
         """
         Execute a read-only query and return all results.
 
@@ -134,6 +145,7 @@ class DatabaseConnection:
             DatabaseConnectionError: If connection fails.
             DatabaseQueryError: If query execution fails.
         """
+        _pyodbc = _get_pyodbc()
         try:
             with self.get_cursor() as cursor:
                 if params:
@@ -141,7 +153,7 @@ class DatabaseConnection:
                 else:
                     cursor.execute(query)
                 return cursor.fetchall()
-        except pyodbc.Error as e:
+        except _pyodbc.Error as e:
             logger.error(f"Query execution failed: {e}")
             raise DatabaseQueryError(f"Query execution failed: {e}") from e
 
@@ -164,6 +176,7 @@ class DatabaseConnection:
             DatabaseConnectionError: If connection fails.
             DatabaseQueryError: If query execution fails.
         """
+        _pyodbc = _get_pyodbc()
         try:
             with self.get_cursor() as cursor:
                 if params:
@@ -172,7 +185,7 @@ class DatabaseConnection:
                     cursor.execute(query)
                 columns = [column[0] for column in cursor.description]
                 return [dict(zip(columns, row)) for row in cursor.fetchall()]
-        except pyodbc.Error as e:
+        except _pyodbc.Error as e:
             logger.error(f"Query execution failed: {e}")
             raise DatabaseQueryError(f"Query execution failed: {e}") from e
 
