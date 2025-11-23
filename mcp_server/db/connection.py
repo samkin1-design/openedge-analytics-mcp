@@ -95,7 +95,11 @@ class DatabaseConnection:
             conn_str = self._build_connection_string()
             logger.debug(f"Connecting to DSN: {self.dsn}")
             conn = _pyodbc.connect(conn_str, timeout=self.timeout)
-            conn.timeout = self.timeout
+            # Note: Some ODBC drivers (like OpenEdge) don't support conn.timeout attribute
+            try:
+                conn.timeout = self.timeout
+            except _pyodbc.Error:
+                logger.debug("Driver does not support connection timeout attribute, skipping")
             yield conn
         except _pyodbc.Error as e:
             logger.error(f"Database connection failed: {e}")
