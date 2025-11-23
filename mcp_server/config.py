@@ -42,15 +42,15 @@ class AppConfig:
     """Application configuration."""
 
     database: DatabaseConfig
-    # Analytics Mart 스키마 이름 - 필요시 여기서만 수정하면 됨
-    analytics_schema: str = "ANALYTICS_MART"
+    # QAD 스키마 이름 - 기본값은 PUB (QAD OpenEdge 표준)
+    analytics_schema: str = "PUB"
 
     @classmethod
     def from_env(cls) -> "AppConfig":
         """Create AppConfig from environment variables."""
         return cls(
             database=DatabaseConfig.from_env(),
-            analytics_schema=os.getenv("ANALYTICS_SCHEMA", "ANALYTICS_MART"),
+            analytics_schema=os.getenv("ANALYTICS_SCHEMA", "PUB"),
         )
 
 

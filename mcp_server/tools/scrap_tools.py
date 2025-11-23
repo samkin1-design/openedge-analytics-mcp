@@ -21,11 +21,11 @@ logger = logging.getLogger(__name__)
 # 허용된 group_by 값들
 VALID_GROUP_BY = {"product", "workcenter", "operation"}
 
-# group_by 값에 따른 SQL 컬럼 매핑
+# group_by 값에 따른 SQL 컬럼 매핑 (QAD op_hist 테이블 기준)
 GROUP_BY_COLUMNS = {
-    "product": "product_id",
-    "workcenter": "workcenter_id",
-    "operation": "operation_id",
+    "product": "op_part",       # 품목별
+    "workcenter": "op_wkctr",   # 작업장별
+    "operation": "op_wo_op",    # 공정별
 }
 
 

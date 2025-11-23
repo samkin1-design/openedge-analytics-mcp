@@ -1,66 +1,86 @@
 -- =============================================================================
--- Margin by Customer Query Template
+-- Margin by Customer Query Template (QAD OpenEdge)
 -- =============================================================================
 -- 목적: 특정 기간 동안 고객별 매출/원가/마진 요약 조회
 --
+-- 데이터 소스:
+--   - ih_hist (Invoice Header History) - 송장 헤더
+--   - idh_hist (Invoice Detail History) - 송장 상세
+--
 -- 파라미터:
---   1. period (string): 조회 기간 ('YYYY-MM', 'YYYYQN', 'YYYY' 형식)
---   2. customer_id (string, optional): 고객 ID (특정 고객만 조회 시)
+--   1. period (string): 조회 기간 (YYYY-MM 형식, 예: '2024-01')
+--      - 동일 period 값을 2번 바인딩해야 함 (시작일/종료일 계산용)
+--   2. customer_id (string, optional): 특정 고객만 조회 시
 --
 -- 동적 치환:
---   - {schema}: 스키마 이름 (config에서 치환)
+--   - {schema}: 스키마 이름 (config에서 치환, 기본: PUB)
 --   - {customer_filter}: 고객 필터 조건 (Python 코드에서 치환)
---       - customer_id 지정 시: "AND customer_id = ?"
+--       - customer_id 지정 시: "AND ih.ih_cust = ?"
 --       - customer_id 미지정 시: "" (빈 문자열)
 --
 -- 반환 컬럼:
 --   - customer_id: 고객 ID
---   - sales_amount: 총 매출액
---   - cogs_amount: 총 매출원가 (Cost of Goods Sold)
+--   - sales_amount: 총 매출액 (수량 × 단가)
+--   - cogs_amount: 총 매출원가 (수량 × 표준원가)
 --
 -- 참고:
 --   - margin_amount와 margin_rate는 Python 코드에서 계산합니다.
---   - 아래 테이블/컬럼명은 예시입니다. 실제 QAD/OpenEdge 스키마에 맞게 수정하세요.
+--   - QAD ih_hist, idh_hist 테이블 기준으로 작성됨
 -- =============================================================================
 
 SELECT
-    customer_id,
-    SUM(sales_amount) AS sales_amount,
-    SUM(cogs_amount) AS cogs_amount
+    ih.ih_cust AS customer_id,
+    SUM(COALESCE(idh.idh_qty_inv, 0) * COALESCE(idh.idh_price, 0)) AS sales_amount,
+    SUM(COALESCE(idh.idh_qty_inv, 0) * COALESCE(idh.idh_std_cost, 0)) AS cogs_amount
 FROM
-    {schema}.customer_margin_summary
+    {schema}.ih_hist ih
+    INNER JOIN {schema}.idh_hist idh ON ih.ih_nbr = idh.idh_nbr
 WHERE
-    fiscal_period = ?
+    -- Period 필터: YYYY-MM 형식으로 월별 조회
+    -- ih_inv_date를 YYYY-MM 형식 문자열로 변환하여 비교
+    SUBSTRING(CAST(ih.ih_inv_date AS VARCHAR(10)), 1, 7) = ?
+    AND ih.ih_invoiced = 1  -- 송장 발행 완료된 건만
     {customer_filter}
 GROUP BY
-    customer_id
+    ih.ih_cust
+HAVING
+    SUM(COALESCE(idh.idh_qty_inv, 0) * COALESCE(idh.idh_price, 0)) > 0
 ORDER BY
-    SUM(sales_amount) DESC
+    SUM(COALESCE(idh.idh_qty_inv, 0) * COALESCE(idh.idh_price, 0)) DESC
 
 -- =============================================================================
--- 예상 테이블 구조 (참고용):
+-- 참고: QAD 테이블 구조
 --
--- CREATE TABLE {schema}.customer_margin_summary (
---     fiscal_period VARCHAR(10) NOT NULL,   -- 회계 기간 (예: '2024-01', '2024Q1', '2024')
---     customer_id VARCHAR(50) NOT NULL,     -- 고객 ID (예: 'BMW', 'HYUNDAI')
---     customer_name VARCHAR(200),           -- 고객명
---     sales_amount DECIMAL(18,2),           -- 매출액
---     cogs_amount DECIMAL(18,2),            -- 매출원가 (Cost of Goods Sold)
---     gross_margin DECIMAL(18,2),           -- 매출총이익 = 매출액 - 매출원가
---     gross_margin_rate DECIMAL(8,4),       -- 매출총이익률 = 매출총이익 / 매출액
---     order_count INTEGER,                  -- 주문 건수
---     ship_count INTEGER,                   -- 출하 건수
---     created_at TIMESTAMP,                 -- 생성 일시
---     updated_at TIMESTAMP,                 -- 수정 일시
---     PRIMARY KEY (fiscal_period, customer_id)
--- );
+-- ih_hist (Invoice Header History):
+--   - ih_nbr: 송장 번호 (PK)
+--   - ih_cust: 고객 코드
+--   - ih_inv_date: 송장 발행일
+--   - ih_inv_nbr: 세금계산서 번호
+--   - ih_invoiced: 송장 발행 여부 (1=발행, 0=미발행)
+--   - ih_curr: 통화 코드
+--   - ih_ex_rate: 환율
 --
--- 예상 인덱스:
--- CREATE INDEX idx_margin_period ON {schema}.customer_margin_summary(fiscal_period);
--- CREATE INDEX idx_margin_customer ON {schema}.customer_margin_summary(customer_id);
+-- idh_hist (Invoice Detail History):
+--   - idh_nbr: 송장 번호 (FK → ih_hist.ih_nbr)
+--   - idh_line: 라인 번호
+--   - idh_part: 품목 번호
+--   - idh_qty_inv: 송장 수량
+--   - idh_price: 단가
+--   - idh_std_cost: 표준 원가
+--   - idh_prodline: 제품군
 --
--- 참고: fiscal_period 형식 예시
---   - 월별: '2024-01', '2024-02', ..., '2024-12'
---   - 분기별: '2024Q1', '2024Q2', '2024Q3', '2024Q4'
---   - 연간: '2024', '2025'
+-- cm_mstr (Customer Master) - 고객명 조회 시 조인:
+--   - cm_addr: 고객 코드 (PK)
+--   - cm_ship: 고객명
+--   - cm_region: 지역
+--   - cm_class: 고객 분류
+--
+-- 확장 쿼리 예시 (고객명 포함):
+--   SELECT ih.ih_cust, cm.cm_ship AS customer_name,
+--          SUM(idh.idh_qty_inv * idh.idh_price) AS sales
+--   FROM {schema}.ih_hist ih
+--   JOIN {schema}.idh_hist idh ON ih.ih_nbr = idh.idh_nbr
+--   LEFT JOIN {schema}.cm_mstr cm ON ih.ih_cust = cm.cm_addr
+--   WHERE SUBSTRING(CAST(ih.ih_inv_date AS VARCHAR(10)), 1, 7) = ?
+--   GROUP BY ih.ih_cust, cm.cm_ship
 -- =============================================================================
